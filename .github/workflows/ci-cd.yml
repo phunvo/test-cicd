@@ -8,14 +8,13 @@ on:
   pull_request:
     branches:
       - main       
-
 jobs:
   # Job 1: build và test
   build_and_test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout codedocker build -t myapp .
+      - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Set up Python
@@ -30,13 +29,21 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          pip install pytest
-          pytest
-
+          pip install -U pytest
+          pytest 
+          pytest/tests
+      - name: Run flake8 linting
+        run: |
+          pip install flake8
+          flake8 .
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}   
       - name: Build Docker image
         run: |
           docker build -t myapp .
-
       - name: Push image to Docker Hub
         uses: docker/build-push-action@v2
         with:
