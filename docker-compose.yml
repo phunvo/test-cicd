@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://dpg:mlopsvienews@db:5432/newsdb
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: dpg
+      POSTGRES_PASSWORD: mlopsvienews
+      POSTGRES_DB: newsdb
+    ports:
+      - "5432:5432"
