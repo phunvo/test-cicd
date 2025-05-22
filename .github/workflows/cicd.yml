@@ -40,7 +40,7 @@ jobs:
         context: ./WEB/backend
         file: ./WEB/backend/Dockerfile
         push: true
-        tags: ${{ secrets.BACKEND_IMAGE }}:latest
+        tags: ${{ env.BACKEND_IMAGE }}:latest
 
     - name: Build and push frontend image
       uses: docker/build-push-action@v3
@@ -48,7 +48,7 @@ jobs:
         context: ./WEB/frontend
         file: ./WEB/frontend/Dockerfile
         push: true
-        tags: ${{ secrets.FRONTEND_IMAGE }}:latest
+        tags: ${{ env.FRONTEND_IMAGE }}:latest
 
   integration_test:
     needs: build_and_push_images
