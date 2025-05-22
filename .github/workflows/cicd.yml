@@ -25,16 +25,16 @@ jobs:
         
     - name: Build backend Docker image
       run: |
-        docker build -t phuowngvo/backend:latest ./WEB/backend
+        docker build -t phuowngvo/test_cicd/backend:latest ./WEB/backend
 
     - name: Push backend Docker image
       run: |
-        docker push phuowngvo/backend:latest
+        docker push phuowngvo/test_cicd/backend:latest
 
     - name: Build frontend Docker image
       run: |
-        docker build -t phuowngvo/frontend:latest ./WEB/frontend
+        docker build -t phuowngvo/test_cicd:frontend-latest ./WEB/frontend
 
     - name: Push frontend Docker image
       run: |
-        docker push phuowngvo/frontend:latest
+        docker push phuowngvo/test_cicd:frontend-latest
