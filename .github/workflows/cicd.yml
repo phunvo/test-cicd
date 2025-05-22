@@ -1,40 +1,116 @@
-name: WEB CI/CD
+name: Full CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    paths:
+      - 'WEB/**'
   pull_request:
-    branches:
-      - main
+    paths:
+      - 'WEB/**'
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  BACKEND_IMAGE: phuowngvo/news-backend
+  FRONTEND_IMAGE: phuowngvo/news-frontend
 
 jobs:
-  build-and-push:
+  build_and_push_images:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Log in to DockerHub
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-        ecr: false
-        
-    - name: Build backend Docker image
-      run: |
-        docker build -t phuowngvo/test_cicd/backend:latest ./WEB/backend
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ env.DOCKERHUB_TOKEN }}
 
-    - name: Push backend Docker image
-      run: |
-        docker push phuowngvo/test_cicd/backend:latest
+    - name: Build and push backend image
+      uses: docker/build-push-action@v3
+      with:
+        context: ./WEB/backend
+        file: ./WEB/backend/Dockerfile
+        push: true
+        tags: ${{ env.BACKEND_IMAGE }}:latest
 
-    - name: Build frontend Docker image
-      run: |
-        docker build -t phuowngvo/test_cicd:frontend-latest ./WEB/frontend
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v3
+      with:
+        context: ./WEB/frontend
+        file: ./WEB/frontend/Dockerfile
+        push: true
+        tags: ${{ env.FRONTEND_IMAGE }}:latest
 
-    - name: Push frontend Docker image
+  integration_test:
+    needs: build_and_push_images
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Compose
       run: |
-        docker push phuowngvo/test_cicd:frontend-latest
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version
+
+    - name: Create docker-compose.override.yml to use pushed images
+      run: |
+        cat > WEB/docker-compose.override.yml <<EOF
+        version: '3.9'
+
+        services:
+          backend:
+            image: ${{ env.BACKEND_IMAGE }}:latest
+            ports:
+              - "8000:8000"
+            environment:
+              - DATABASE_URL=postgresql://newsadmin:123456@db:5432/newsdb
+            depends_on:
+              - db
+            restart: always
+
+          frontend:
+            image: ${{ env.FRONTEND_IMAGE }}:latest
+            ports:
+              - "8501:8501"
+            environment:
+              - API_BASE=http://backend:8000/api
+            depends_on:
+              - backend
+            restart: always
+        EOF
+
+    - name: Start stack with docker-compose
+      run: docker-compose -f WEB/docker-compose.yml -f WEB/docker-compose.override.yml up -d
+
+    - name: Wait for backend ready
+      run: |
+        echo "Waiting for backend to be ready..."
+        for i in {1..30}; do
+          curl -f http://localhost:8000/ && break
+          echo "Waiting 2 seconds..."
+          sleep 2
+        done
+
+    - name: Test backend API
+      run: |
+        curl -f http://localhost:8000/ || (docker logs $(docker ps -qf "name=backend") && exit 1)
+
+    - name: Test frontend UI
+      run: |
+        curl -f http://localhost:8501/ || (docker logs $(docker ps -qf "name=frontend") && exit 1)
+
+    - name: Stop and remove containers
+      if: always()
+      run: docker-compose -f WEB/docker-compose.yml -f WEB/docker-compose.override.yml down --volumes
