@@ -81,7 +81,7 @@ jobs:
             restart: always
 
           frontend:
-            image: ${{ secrets.FRONTEND_IMAGE }}:latest
+            image: ${{ env.FRONTEND_IMAGE }}:latest
             ports:
               - "8501:8501"
             environment:
