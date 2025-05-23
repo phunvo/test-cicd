@@ -8,7 +8,7 @@ API_BASE = os.environ.get("API_BASE", "http://localhost:8000/api")
 st.set_page_config(page_title="Tin tức", layout="wide")
 st.title("📰 Trang Tin Tức")
 
-menu = ["Tin Mới Nhất", "Tin Hot", "Xem Chi Tiết", "Theo Danh Mục"]
+menu = ["Tin Mới Nhất", "Tin Hot", "Xem Chi Tiết", "Theo Danh Mục", "Tóm Tắt Văn Bản"]
 choice = st.sidebar.selectbox("Chọn chức năng", menu)
 
 if choice == "Tin Mới Nhất":
@@ -63,3 +63,19 @@ elif choice == "Theo Danh Mục":
                 st.write("---")
         else:
             st.error("Không tìm thấy danh mục hoặc không có bài viết")
+
+
+elif choice == "Tóm Tắt Văn Bản":
+    st.subheader("📝 Tóm Tắt Văn Bản")
+    user_text = st.text_area("Nhập đoạn văn bản cần tóm tắt", height=250)
+    if st.button("Tóm tắt"):
+        if not user_text.strip():
+            st.warning("Vui lòng nhập văn bản.")
+        else:
+            res = requests.post(f"{API_BASE}/summarize/", json={"text": user_text})
+            if res.status_code == 200:
+                summary = res.json()["summary"]
+                st.success("✅ Tóm tắt thành công:")
+                st.markdown(f"**Tóm tắt:** {summary}")
+            else:
+                st.error(f"Lỗi: {res.json().get('detail', 'Không rõ lỗi')}")
