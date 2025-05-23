@@ -18,6 +18,14 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 from models import Base, BaiViet, DanhMuc
+from transformers import pipeline
+
+
+class SummarizeRequest(BaseModel):
+    text: str
+
+class SummarizeResponse(BaseModel):
+    summary: str
 
 
 class DanhMucBase(BaseModel):
@@ -58,6 +66,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
 def get_db():
     db = SessionLocal()
@@ -115,3 +124,13 @@ def api_get_theo_danh_muc(danh_muc_id: int, skip=0, limit=10, db: Session = Depe
 @app.post("/api/tintuc/", response_model=BaiVietResponse, status_code=status.HTTP_201_CREATED)
 def api_tao_bai_viet(bai_viet: BaiVietCreate, db: Session = Depends(get_db)):
     return create_bai_viet(db, bai_viet)
+
+@app.post("/api/summarize/", response_model=SummarizeResponse)
+def summarize_text(req: SummarizeRequest):
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="Văn bản trống")
+    try:
+        result = summarizer(req.text, max_length=130, min_length=30, do_sample=False)
+        return {"summary": result[0]['summary_text']}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi tóm tắt: {str(e)}")
